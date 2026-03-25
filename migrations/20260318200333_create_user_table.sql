@@ -1,0 +1,13 @@
+-- +goose Up
+SELECT 'up SQL query';
+CREATE TABLE users (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    login VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    active BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+-- +goose Down
+SELECT 'down SQL query';
+DROP TABLE IF EXISTS users;
