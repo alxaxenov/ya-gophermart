@@ -11,7 +11,7 @@ CREATE TABLE orders (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_orders_user_id ON orders (user_id);
-CREATE INDEX idx_status_uploaded ON orders (status, uploaded_at)
+CREATE INDEX idx_status_uploaded ON orders (status, uploaded_at);
 
 -- +goose Down
 SELECT 'down SQL query';
