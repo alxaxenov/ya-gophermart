@@ -4,7 +4,7 @@ CREATE TABLE withdrawals (
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     user_id BIGINT NOT NULL,
     order_number VARCHAR(50) NOT NULL UNIQUE,
-    sum DECIMAL(10,1) NOT NULL,
+    sum DECIMAL(10,2) NOT NULL,
     processed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_withdrawals_user_id ON withdrawals (user_id);
