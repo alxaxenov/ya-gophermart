@@ -2,21 +2,20 @@
 package logger
 
 import (
-	"fmt"
-
-	"go.uber.org/zap"
+	"log/slog"
+	"os"
 )
 
 // Logger используется для хранения инстанса логгера.
-var Logger *zap.SugaredLogger = zap.NewNop().Sugar()
+var Logger *slog.Logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
 
 // Initialize инициализация логгера.
 func Initialize() error {
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		return fmt.Errorf("cannot initialize zap: %w", err)
+	opts := &slog.HandlerOptions{
+		Level: slog.LevelDebug,
 	}
-	defer logger.Sync()
-	Logger = logger.Sugar()
+	handler := slog.NewJSONHandler(os.Stderr, opts)
+	Logger = slog.New(handler)
+	slog.SetDefault(Logger)
 	return nil
 }

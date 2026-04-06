@@ -28,7 +28,7 @@ func newRateLimitError(req *resty.Response) *RateLimitError {
 	timeout := req.Header().Get("Retry-After")
 	seconds, err := strconv.Atoi(timeout)
 	if err != nil {
-		logger.Logger.Error("newRateLimitError parsing to int error:", "error", err)
+		logger.Logger.Error("newRateLimitError parsing to int error", "error", err)
 		seconds = 0
 	}
 	return &RateLimitError{Timeout: seconds, Err: nil}

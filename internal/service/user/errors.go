@@ -57,3 +57,6 @@ func (n *NotFoundError) Unwrap() error {
 func NewNotFound(l string, err error) *NotFoundError {
 	return &NotFoundError{Login: l, Err: err}
 }
+
+var IDNotFoundError = errors.New("user id not found in context")
+var TokenInvalidError = errors.New("token is not valid")

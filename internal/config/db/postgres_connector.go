@@ -11,24 +11,26 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
+// ConnectorPG структура подключения к бд PostgreSQL
 type ConnectorPG struct {
 	Connector
 }
 
+// Open открытие и проверка соединения, выполнение миграций
 func (c *ConnectorPG) Open() (*sqlx.DB, error) {
 	dataBase, err := sqlx.Connect("pgx", c.DSN)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 	c.DB = &PGDBWrapper{dataBase}
-	if err := c.Migrate(dataBase); err != nil {
+	if err := c.migrate(dataBase); err != nil {
 		defer dataBase.Close()
 		return nil, err
 	}
 	return dataBase, nil
 }
 
-func (c *ConnectorPG) Migrate(dataBase *sqlx.DB) error {
+func (c *ConnectorPG) migrate(dataBase *sqlx.DB) error {
 	goose.SetBaseFS(migrations.EmbedMigrations)
 	if err := goose.SetDialect("postgres"); err != nil {
 		return fmt.Errorf("migration SetDialect error: %w", err)

@@ -25,20 +25,23 @@ func newConfigDefault() *Config {
 	}
 }
 
+// validate проверка заполненности обязательных параметров конфигурации
 func (c *Config) validate() error {
 	var errorText string
 	switch {
 	case c.DBURI == "":
-		errorText = "Не передана строка подключения к базе данных. Используйте флаг -d или переменную DATABASE_URI"
+		errorText = "не передана строка подключения к базе данных. Используйте флаг -d или переменную DATABASE_URI"
 	case c.AcrualAddr == "":
-		errorText = "Не передан адрес системы расчёта начислений. Используйте флаг -r или переменную ACCRUAL_SYSTEM_ADDRESS"
+		errorText = "не передан адрес системы расчёта начислений. Используйте флаг -r или переменную ACCRUAL_SYSTEM_ADDRESS"
 	}
 	if errorText != "" {
-		return fmt.Errorf(errorText)
+		return fmt.Errorf("%s", errorText)
 	}
 	return nil
 }
 
+// ParseConfig инициализация конфига приложения, чтение переменных из переменных окружения и переданных флагов
+// значения переданных флагов являются более приоритетными, чем переменных окружения
 func ParseConfig() (*Config, error) {
 	cfg := newConfigDefault()
 

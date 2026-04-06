@@ -22,6 +22,7 @@ func NewHTTPClient(baseURL string, timeout int) *HTTPClient {
 	}
 }
 
+// GetOrderInfo получение информации о вознаграждении за заказ
 func (c *HTTPClient) GetOrderInfo(orderID string) (*OrderInfo, error) {
 	const (
 		endpoint = "/api/orders/%s"

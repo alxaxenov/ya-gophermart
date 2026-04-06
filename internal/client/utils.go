@@ -5,6 +5,7 @@ import (
 	"path"
 )
 
+// UrlJoin логика джоина базового хоста внешнего сервиса и необходимого эндпоинта
 func UrlJoin(basePath string, paths ...string) (*url.URL, error) {
 	u, err := url.Parse(basePath)
 	if err != nil {

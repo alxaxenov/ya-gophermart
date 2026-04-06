@@ -8,6 +8,7 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+// Validate Валидирует значения полей структуры, параметры валидации задаются
 func Validate(s any) error {
 	val := reflect.ValueOf(s)
 	if val.Kind() == reflect.Ptr {

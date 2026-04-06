@@ -4,6 +4,9 @@ import "strconv"
 
 // OrderNumberCheck проверка номера заказа по алгоритму Луна
 func OrderNumberCheck(n string) bool {
+	if len(n) == 0 {
+		return false
+	}
 	var sum int
 	l := len(n)
 	for i := l - 1; i >= 0; i-- {

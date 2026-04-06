@@ -1,5 +1,6 @@
 package order
 
+// Status статус заказа
 type Status string
 
 const (

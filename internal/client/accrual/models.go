@@ -2,6 +2,7 @@ package accrual
 
 import "github.com/alxaxenov/ya-gophermart/internal/domain/order"
 
+// OrderStatus статус расчета вознаграждения
 type OrderStatus string
 
 const (
@@ -11,10 +12,12 @@ const (
 	PROCESSED  OrderStatus = "PROCESSED"
 )
 
+// IsFinal проверка является ли расчет оконченным
 func (e OrderStatus) IsFinal() bool {
 	return e == INVALID || e == PROCESSED
 }
 
+// MatchToOrderStatus логика маппинга статуса расчета вознаграждения к статусу начисления вознаграждения
 func (e OrderStatus) MatchToOrderStatus() order.Status {
 	switch e {
 	case REGISTERED, PROCESSING:

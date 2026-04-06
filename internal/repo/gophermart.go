@@ -12,10 +12,12 @@ import (
 	"github.com/alxaxenov/ya-gophermart/internal/repo/model"
 )
 
+// GophermartRepo репозиторий для взаимодействия с таблицами orders, balance, withdrawals
 type GophermartRepo struct {
 	Connector connector
 }
 
+// GetBalance получение баланса по id пользователя
 func (g *GophermartRepo) GetBalance(ctx context.Context, userID int) (*model.Balance, error) {
 	db := g.Connector.GetDB()
 	var balance model.Balance
@@ -30,6 +32,9 @@ func (g *GophermartRepo) GetBalance(ctx context.Context, userID int) (*model.Bal
 	return &balance, nil
 }
 
+// GetBalanceTx получение актуального баланса пользователя
+// так же возвращается открытая транзакция, в контексте которой был получен баланс (с блокировкой на внесение изменений)
+// с целью передачи его в последующие вызовы репозитория, для обеспечения согласованности данных
 func (g *GophermartRepo) GetBalanceTx(ctx context.Context, userID int) (*model.Balance, db.Tx, error) {
 	tx, err := g.Connector.GetDB().BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
@@ -49,6 +54,8 @@ func (g *GophermartRepo) GetBalanceTx(ctx context.Context, userID int) (*model.B
 	return &balance, tx, nil
 }
 
+// AddWithdrawTx добавление нового списания и обновление баланса пользователя
+// на вход ожидается открытая транзакция, ранее в контексте которой был получен баланс пользователя
 func (g *GophermartRepo) AddWithdrawTx(ctx context.Context, tx db.Tx, withdraw *model.AddWithdraw) error {
 	defer tx.Rollback()
 
@@ -72,6 +79,7 @@ func (g *GophermartRepo) AddWithdrawTx(ctx context.Context, tx db.Tx, withdraw *
 	return nil
 }
 
+// GetUserWithdrawals получение всех списаний по id пользователя
 func (g *GophermartRepo) GetUserWithdrawals(ctx context.Context, userID int) (*[]model.Withdraw, error) {
 	db := g.Connector.GetDB()
 	var withdraws []model.Withdraw
@@ -83,6 +91,7 @@ func (g *GophermartRepo) GetUserWithdrawals(ctx context.Context, userID int) (*[
 	return &withdraws, nil
 }
 
+// CreateOrder создание нового заказа
 func (g *GophermartRepo) CreateOrder(ctx context.Context, userID int, orderNum string) (bool, error) {
 	db := g.Connector.GetDB()
 	query := "INSERT INTO orders (user_id, number) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id"
@@ -100,6 +109,7 @@ func (g *GophermartRepo) CreateOrder(ctx context.Context, userID int, orderNum s
 	return true, nil
 }
 
+// GetOrderByNumber получение заказа по его номеру
 func (g *GophermartRepo) GetOrderByNumber(ctx context.Context, orderNum string) (*model.Order, error) {
 	db := g.Connector.GetDB()
 	var order model.Order
@@ -111,9 +121,10 @@ func (g *GophermartRepo) GetOrderByNumber(ctx context.Context, orderNum string) 
 	return &order, nil
 }
 
+// GetOrders получение всех заказов по id пользователя
 func (g *GophermartRepo) GetOrders(ctx context.Context, userID int) (*[]model.OrderForList, error) {
 	db := g.Connector.GetDB()
-	var orders []model.OrderForList
+	orders := []model.OrderForList{}
 	query := "SELECT number, status, accrual, uploaded_at from orders WHERE user_id = $1 ORDER BY uploaded_at DESC"
 	err := db.SelectContext(ctx, &orders, query, userID)
 	if err != nil {
@@ -122,9 +133,10 @@ func (g *GophermartRepo) GetOrders(ctx context.Context, userID int) (*[]model.Or
 	return &orders, nil
 }
 
+// GetOrdersToProcess получение заказов, для которых начисление вознаграждения еще в процессе
 func (g *GophermartRepo) GetOrdersToProcess(ctx context.Context, limit int) (*[]model.OrderToProcess, error) {
 	db := g.Connector.GetDB()
-	var orders []model.OrderToProcess
+	orders := []model.OrderToProcess{}
 	query := "SELECT number, status, user_id FROM orders WHERE status IN ($1, $2) ORDER BY uploaded_at ASC LIMIT $3"
 	err := db.SelectContext(ctx, &orders, query, order.NEW, order.PROCESSING, limit)
 	if err != nil {
@@ -133,6 +145,7 @@ func (g *GophermartRepo) GetOrdersToProcess(ctx context.Context, limit int) (*[]
 	return &orders, nil
 }
 
+// UpdateOrderStatus обновление статуса заказа по его номеру
 func (g *GophermartRepo) UpdateOrderStatus(ctx context.Context, orderNum string, status order.Status) error {
 	db := g.Connector.GetDB()
 	query := "UPDATE orders SET status = $1, updated_at = $2 WHERE number = $3"
@@ -143,6 +156,7 @@ func (g *GophermartRepo) UpdateOrderStatus(ctx context.Context, orderNum string,
 	return nil
 }
 
+// UpdateOrderAccrual обновление статуса и присвоение вознаграждение заказу по его номеру, начисление вознаграждения на баланс пользователяytt
 func (g *GophermartRepo) UpdateOrderAccrual(ctx context.Context, orderNum string, userID int, status order.Status, accrual float64) error {
 	tx, err := g.Connector.GetDB().BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	defer tx.Rollback()

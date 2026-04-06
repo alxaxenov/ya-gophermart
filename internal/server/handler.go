@@ -1,4 +1,4 @@
-package handler
+package server
 
 import (
 	"context"
@@ -25,6 +25,7 @@ func NewGophermartHandler(userService UserService, gophermartService GophermartS
 	}
 }
 
+//go:generate mockgen -source=$GOFILE -destination=mocks/mock_$GOFILE -package=mocks
 type UserService interface {
 	RegisterUser(context.Context, string, string) (int, error)
 	LoginUser(context.Context, string, string) (int, error)
@@ -41,6 +42,12 @@ type GophermartService interface {
 	GetOrders(context.Context, int) (*[]model.GetOrdersResponse, error)
 }
 
+// Register хендлер регистрации нового пользователя
+// Возможные ответы:
+// 200 - пользователь успешно зарегистрирован и аутентифицирован
+// 400 - неверный формат запроса (неверный content-type запроса, некорректные данные запроса)
+// 409 - логин уже занят
+// 500 - внутренняя ошибка сервера (необработанная ошибка бизнес логики, ошибка установки заголовка с куки пользователя)
 func (h *GophermartHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("content-type") != "application/json" {
 		http.Error(w, "unexpected content-type", http.StatusBadRequest)
@@ -49,7 +56,7 @@ func (h *GophermartHandler) Register(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	req := model.Credentials{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		logger.Logger.Infof("Register json decoder error %s", err.Error())
+		logger.Logger.Error("Register json decoder error", "error", err)
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
@@ -79,6 +86,14 @@ func (h *GophermartHandler) Register(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// Login аутентификация пользователя
+// Возможные ответы:
+// 200 - пользователь успешно аутентифицирован
+// 400 - неверный формат запроса (неверный content-type запроса, некорректные данные запроса)
+// 401 - неверная пара логин/пароль
+// 403 - пользователь не активен
+// 404 - пользователь не зарегистрирован
+// 500 - внутренняя ошибка сервера (необработанная ошибка бизнес логики, ошибка установки заголовка с куки пользователя)
 func (h *GophermartHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("content-type") != "application/json" {
 		http.Error(w, "unexpected content-type", http.StatusBadRequest)
@@ -87,7 +102,7 @@ func (h *GophermartHandler) Login(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	req := model.Credentials{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		logger.Logger.Infof("Login json decoder error %s", err.Error())
+		logger.Logger.Error("Login json decoder error", "error", err)
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
@@ -123,6 +138,12 @@ func (h *GophermartHandler) Login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// GetUserBalance получение текущего баланса пользователя
+// Возможные ответы:
+// 200 - успешная обработка запроса (возврат баланса)
+// 401 - пользователь не авторизован
+// 404 - сущность баланса не найдена
+// 500 - внутренняя ошибка сервера (необработанная ошибка бизнес логики, ошибка конвертации в json тела ответа)
 func (h *GophermartHandler) GetUserBalance(w http.ResponseWriter, r *http.Request) {
 	userId, err := h.UserService.GetUserIDCtx(r.Context())
 	if err != nil {
@@ -150,6 +171,15 @@ func (h *GophermartHandler) GetUserBalance(w http.ResponseWriter, r *http.Reques
 	w.Write(respData)
 }
 
+// AddWithdraw запрос на списание средств
+// Возможные ответы:
+// 200 - успешная обработка запроса
+// 400 - неверный формат запроса (неверный content-type запроса, некорректные данные запроса)
+// 401 - пользователь не авторизован
+// 402 - на счету недостаточно средств
+// 422 - неверный номер заказа
+// 404 - сущность баланса не найдена
+// 500 - внутренняя ошибка сервера (необработанная ошибка бизнес логики)
 func (h *GophermartHandler) AddWithdraw(w http.ResponseWriter, r *http.Request) {
 	userId, err := h.UserService.GetUserIDCtx(r.Context())
 	if err != nil {
@@ -164,7 +194,7 @@ func (h *GophermartHandler) AddWithdraw(w http.ResponseWriter, r *http.Request) 
 	defer r.Body.Close()
 	req := model.AddWithdrawRequest{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		logger.Logger.Infof("AddWithdraw json decoder error %s", err.Error())
+		logger.Logger.Error("AddWithdraw json decoder error", "error", err)
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
@@ -199,10 +229,17 @@ func (h *GophermartHandler) AddWithdraw(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK)
 }
 
+// GetWithdrawals получение информации о списаниях средств
+// Возможные ответы:
+// 200 - успешная обработка запроса (возврат листинга списаний)
+// 204 - у пользователя нет ни одного списания
+// 401 - пользователь не авторизован
+// 500 - внутренняя ошибка сервера (необработанная ошибка бизнес логики)
 func (h *GophermartHandler) GetWithdrawals(w http.ResponseWriter, r *http.Request) {
 	userId, err := h.UserService.GetUserIDCtx(r.Context())
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		return
 	}
 	withdrawals, err := h.GophermartService.GetWithdrawals(r.Context(), userId)
 	if err != nil {
@@ -229,10 +266,20 @@ func (h *GophermartHandler) GetWithdrawals(w http.ResponseWriter, r *http.Reques
 
 }
 
+// AddOrder загрузка нового заказа в систему
+// Возможные ответы:
+// 200 - номер заказа уже был загружен этим пользователем (заказ уже был создан ранее для этого пользователя)
+// 202 - новый номер заказа принят в обработку (новый заказ успешно создан)
+// 400 - неверный формат запроса (неверный content-type запроса, некорректные данные запроса)
+// 401 - пользователь не авторизован
+// 409 - номер заказа уже был загружен другим пользователем (заказ уже был создан для другого пользователя)
+// 422 - неверный номер заказа
+// 500 - внутренняя ошибка сервера (необработанная ошибка бизнес логики)
 func (h *GophermartHandler) AddOrder(w http.ResponseWriter, r *http.Request) {
 	userId, err := h.UserService.GetUserIDCtx(r.Context())
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		return
 	}
 
 	if r.Header.Get("content-type") != "text/plain" {
@@ -278,10 +325,17 @@ func (h *GophermartHandler) AddOrder(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(status)
 }
 
+// GetOrders получение списка загруженных заказов
+// Возможные ответы:
+// 200 - успешная обработка запроса (возврат листинга заказов)
+// 204 - у пользователя нет зарегистрированных заказов
+// 401 - пользователь не авторизован
+// 500 - внутренняя ошибка сервера (необработанная ошибка бизнес логики, ошибка конвертации в json тела ответа)
 func (h *GophermartHandler) GetOrders(w http.ResponseWriter, r *http.Request) {
 	userId, err := h.UserService.GetUserIDCtx(r.Context())
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		return
 	}
 
 	orders, err := h.GophermartService.GetOrders(r.Context(), userId)
@@ -308,6 +362,7 @@ func (h *GophermartHandler) GetOrders(w http.ResponseWriter, r *http.Request) {
 	w.Write(respData)
 }
 
+// addAuthCookie установка заголовка ответа Set-Cookie с кукой пользователя
 func (h *GophermartHandler) addAuthCookie(ID int, w *http.ResponseWriter) error {
 	token, err := h.UserService.BuildTokenString(ID)
 	if err != nil {

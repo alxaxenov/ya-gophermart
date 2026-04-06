@@ -42,7 +42,8 @@ func WithLogging(next http.Handler) http.Handler {
 
 		duration := time.Since(start)
 
-		logger.Logger.Infoln(
+		logger.Logger.Info(
+			"Request recieved",
 			"method:", method,
 			"uri:", uri,
 			"duration:", duration,

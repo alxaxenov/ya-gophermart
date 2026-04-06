@@ -15,6 +15,8 @@ type UserAuthMiddleware struct {
 	userService UserService
 }
 
+// Use метод UserAuthMiddleware для запуска миддлвар. Проверяет наличие наличие id пользователя в куках запроса.
+// Если id отсутствует, возвращает 401 статус
 func (u *UserAuthMiddleware) Use(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(u.userService.GetCookieAuthKey())

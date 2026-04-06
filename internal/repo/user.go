@@ -9,14 +9,16 @@ import (
 	"github.com/alxaxenov/ya-gophermart/internal/repo/model"
 )
 
+// UserRepo репозиторий для взаимодействия с таблицей users
 type UserRepo struct {
 	Connector connector
 }
 
+// CheckLogin проверка существует ли уже пользователь с таким логином
 func (d *UserRepo) CheckLogin(ctx context.Context, login string) (bool, error) {
 	db := d.Connector.GetDB()
 	var userID int
-	err := db.QueryRowxContext(ctx, "SELECT id from users WHERE login = $1", login).Scan(&userID)
+	err := db.GetContext(ctx, &userID, "SELECT id FROM users WHERE login = $1", login)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, nil
@@ -26,6 +28,7 @@ func (d *UserRepo) CheckLogin(ctx context.Context, login string) (bool, error) {
 	return userID != 0, nil
 }
 
+// CreateUser создание нового пользователя и его баланса
 func (d *UserRepo) CreateUser(ctx context.Context, login string, password string) (int, error) {
 	db := d.Connector.GetDB()
 	tx, err := db.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelDefault})
@@ -38,7 +41,7 @@ func (d *UserRepo) CreateUser(ctx context.Context, login string, password string
 	queryBalance := "INSERT INTO balance (user_id) VALUES ($1)"
 
 	var userID int
-	err = tx.QueryRowxContext(ctx, queryUser, login, password).Scan(&userID)
+	err = tx.GetContext(ctx, &userID, queryUser, login, password)
 	if err != nil {
 		return 0, fmt.Errorf("UserRepo CreateUser user query error: %w", err)
 	}
@@ -55,6 +58,7 @@ func (d *UserRepo) CreateUser(ctx context.Context, login string, password string
 	return userID, nil
 }
 
+// GetUser получение существующего пользователя по его логину
 func (d *UserRepo) GetUser(ctx context.Context, login string) (*model.User, error) {
 	db := d.Connector.GetDB()
 	var user model.User

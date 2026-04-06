@@ -1,10 +1,9 @@
-package handler
+package server
 
 import (
 	"net/http"
 	"time"
 
-	"github.com/alxaxenov/ya-gophermart/internal/logger"
 	"github.com/alxaxenov/ya-gophermart/internal/middleware"
 	"github.com/go-chi/chi/v5"
 )
@@ -21,35 +20,34 @@ type Handler interface {
 
 const (
 	timeoutDefault = 3 * time.Second
-	timeoutBatch   = 5 * time.Second
+	timeoutListing = 5 * time.Second
 )
 
 type ComplexMiddleware interface {
 	Use(http.Handler) http.Handler
 }
 
-func Serve(addr string, h Handler, userMiddleware ComplexMiddleware) error {
+// initRouter конфигурация api интерфейса сервера
+func initRouter(h Handler, userMiddleware ComplexMiddleware) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(middleware.WithLogging)
 
 	r.Route("/api/user", func(r chi.Router) {
-		r.Post("/register", h.Register)
-		r.Post("/login", h.Login)
+		r.Post("/register", timeoutHandler(h.Register, timeoutDefault, ""))
+		r.Post("/login", timeoutHandler(h.Login, timeoutDefault, ""))
 
 		r.Group(func(r chi.Router) {
 			r.Use(userMiddleware.Use)
 
-			r.Get("/balance", h.GetUserBalance)
-			r.Post("/balance/withdraw", h.AddWithdraw)
-			r.Get("/withdrawals", h.GetWithdrawals)
-			r.Post("/orders", h.AddOrder)
-			r.Get("/orders", h.GetOrders)
+			r.Get("/balance", timeoutHandler(h.GetUserBalance, timeoutDefault, ""))
+			r.Post("/balance/withdraw", timeoutHandler(h.AddWithdraw, timeoutDefault, ""))
+			r.Get("/withdrawals", timeoutHandler(h.GetWithdrawals, timeoutListing, ""))
+			r.Post("/orders", timeoutHandler(h.AddOrder, timeoutDefault, ""))
+			r.Get("/orders", timeoutHandler(h.GetOrders, timeoutListing, ""))
 		})
 
 	})
-	//TODO timeout ручек
 
-	logger.Logger.Info("Running server on", addr)
-	return http.ListenAndServe(addr, r)
+	return r
 }

@@ -6,7 +6,7 @@ import (
 
 	"github.com/alxaxenov/ya-gophermart/internal/config/db"
 	"github.com/alxaxenov/ya-gophermart/internal/model"
-	repo_model "github.com/alxaxenov/ya-gophermart/internal/repo/model"
+	repoModel "github.com/alxaxenov/ya-gophermart/internal/repo/model"
 	"github.com/alxaxenov/ya-gophermart/internal/utils"
 )
 
@@ -14,16 +14,18 @@ type Service struct {
 	GophermartRepo expectedRepo
 }
 
+//go:generate mockgen -source=$GOFILE -destination=mocks/mock_$GOFILE -package=mocks
 type expectedRepo interface {
-	GetBalance(context.Context, int) (*repo_model.Balance, error)
-	GetBalanceTx(context.Context, int) (*repo_model.Balance, db.Tx, error)
-	AddWithdrawTx(context.Context, db.Tx, *repo_model.AddWithdraw) error
-	GetUserWithdrawals(context.Context, int) (*[]repo_model.Withdraw, error)
+	GetBalance(context.Context, int) (*repoModel.Balance, error)
+	GetBalanceTx(context.Context, int) (*repoModel.Balance, db.Tx, error)
+	AddWithdrawTx(context.Context, db.Tx, *repoModel.AddWithdraw) error
+	GetUserWithdrawals(context.Context, int) (*[]repoModel.Withdraw, error)
 	CreateOrder(context.Context, int, string) (bool, error)
-	GetOrderByNumber(context.Context, string) (*repo_model.Order, error)
-	GetOrders(ctx context.Context, userID int) (*[]repo_model.OrderForList, error)
+	GetOrderByNumber(context.Context, string) (*repoModel.Order, error)
+	GetOrders(ctx context.Context, userID int) (*[]repoModel.OrderForList, error)
 }
 
+// GetBalance получение баланса пользователя
 func (g *Service) GetBalance(ctx context.Context, userId int) (*model.UserBalanceResponse, error) {
 	balance, err := g.GophermartRepo.GetBalance(ctx, userId)
 	if err != nil {
@@ -35,6 +37,7 @@ func (g *Service) GetBalance(ctx context.Context, userId int) (*model.UserBalanc
 	return &model.UserBalanceResponse{Current: balance.Current, Withdrawn: balance.Withdrawn}, nil
 }
 
+// AddWithdraw логика проверки возможности списания и добавление списания с баланса пользователя
 func (g *Service) AddWithdraw(ctx context.Context, userID int, order string, sum float64) error {
 	if !utils.OrderNumberCheck(order) {
 		return OrderNumberIncorrectError
@@ -57,7 +60,7 @@ func (g *Service) AddWithdraw(ctx context.Context, userID int, order string, sum
 	return g.GophermartRepo.AddWithdrawTx(
 		ctx,
 		tx,
-		&repo_model.AddWithdraw{
+		&repoModel.AddWithdraw{
 			BalanceID:    balance.ID,
 			UserID:       userID,
 			Order:        order,
@@ -68,12 +71,13 @@ func (g *Service) AddWithdraw(ctx context.Context, userID int, order string, sum
 	)
 }
 
+// GetWithdrawals получение всех списаний пользователя
 func (g *Service) GetWithdrawals(ctx context.Context, userID int) (*[]model.GetWithdrawResponse, error) {
 	withdrawals, err := g.GophermartRepo.GetUserWithdrawals(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	var resp []model.GetWithdrawResponse
+	resp := []model.GetWithdrawResponse{}
 	for _, w := range *withdrawals {
 		resp = append(
 			resp,
@@ -83,8 +87,9 @@ func (g *Service) GetWithdrawals(ctx context.Context, userID int) (*[]model.GetW
 	return &resp, nil
 }
 
+// CreateOrder создание заказа
 func (g *Service) CreateOrder(ctx context.Context, userID int, orderNum string) (bool, error) {
-	if orderNum == "" || !utils.OrderNumberCheck(orderNum) {
+	if !utils.OrderNumberCheck(orderNum) {
 		return false, OrderNumberIncorrectError
 	}
 
@@ -106,12 +111,13 @@ func (g *Service) CreateOrder(ctx context.Context, userID int, orderNum string) 
 	return false, nil
 }
 
+// GetOrders получение заказов пользователя
 func (g *Service) GetOrders(ctx context.Context, userID int) (*[]model.GetOrdersResponse, error) {
 	orders, err := g.GophermartRepo.GetOrders(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	var resp []model.GetOrdersResponse
+	resp := []model.GetOrdersResponse{}
 	for _, o := range *orders {
 		var accrual float64
 		if o.Accrual.Valid {
